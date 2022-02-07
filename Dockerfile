@@ -1,11 +1,20 @@
 ARG ARCH="amd64"
 ARG OS="linux"
-FROM quay.io/prometheus/busybox-${OS}-${ARCH}:latest
+
+FROM golang as builder
+
+WORKDIR /build
+COPY . /build/
+ENV CGO_ENABLED=0
+RUN go install
+RUN go build
+
+FROM alpine
 LABEL maintainer="The Prometheus Authors <prometheus-developers@googlegroups.com>"
 
 ARG ARCH="amd64"
 ARG OS="linux"
-COPY .build/${OS}-${ARCH}/snmp_exporter  /bin/snmp_exporter
+COPY --from=builder /build/snmp_exporter  /bin/snmp_exporter
 COPY snmp.yml       /etc/snmp_exporter/snmp.yml
 
 EXPOSE      9116

@@ -67,9 +67,20 @@ var (
 			Help:      "Number of SNMP packet retries.",
 		},
 	)
+
+	snmpErrors = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "errors_total",
+			Help:      "Number of walk and get that failed.",
+		},
+	)
+
 	// 64-bit float mantissa: https://en.wikipedia.org/wiki/Double-precision_floating-point_format
-	float64Mantissa uint64 = 9007199254740992
-	wrapCounters           = kingpin.Flag("snmp.wrap-large-counters", "Wrap 64-bit counters to avoid floating point rounding.").Default("true").Bool()
+	float64Mantissa         uint64 = 9007199254740992
+	wrapCounters                   = kingpin.Flag("snmp.wrap-large-counters", "Wrap 64-bit counters to avoid floating point rounding.").Default("true").Bool()
+	useUnconnectedUDPSocket        = kingpin.Flag("snmp.use-unconnected-udp-socket", "Open unconnected UDP socket and use sendto/recvfrom. Workaround for issues with miscommunication with some devices").Default("true").Bool()
+	stopOnError                    = kingpin.Flag("snmp.stop-on-error", "If disabled, process logs errors and continues to next OID, otherwise stops on first error").Default("false").Bool()
 )
 
 // Types preceded by an enum with their actual type.
@@ -114,6 +125,20 @@ type ScrapeResults struct {
 	retries uint64
 }
 
+type LoggerWrapper struct {
+	logger log.Logger
+}
+
+func (l LoggerWrapper) Print(v ...interface{}) {
+	message := fmt.Sprintf("%s", v)
+	l.logger.Log("snmp", message)
+}
+
+func (l LoggerWrapper) Printf(format string, v ...interface{}) {
+	message := fmt.Sprintf(format, v)
+	l.logger.Log("snmp", message)
+}
+
 func ScrapeTarget(ctx context.Context, target string, config *config.Module, logger log.Logger) (ScrapeResults, error) {
 	results := ScrapeResults{}
 	// Set the options.
@@ -122,17 +147,22 @@ func ScrapeTarget(ctx context.Context, target string, config *config.Module, log
 	snmp.MaxRepetitions = config.WalkParams.MaxRepetitions
 	snmp.Retries = config.WalkParams.Retries
 	snmp.Timeout = config.WalkParams.Timeout
+	snmp.Logger = gosnmp.NewLogger(LoggerWrapper{level.Debug(log.With(logger, "caller", "gosnmp"))})
+	snmp.UseUnconnectedUDPSocket = *useUnconnectedUDPSocket
 
 	var sent time.Time
 	snmp.OnSent = func(x *gosnmp.GoSNMP) {
+		level.Debug(logger).Log("msg", "sending data")
 		sent = time.Now()
 		snmpPackets.Inc()
 		results.packets++
 	}
 	snmp.OnRecv = func(x *gosnmp.GoSNMP) {
+		level.Debug(logger).Log("received", x)
 		snmpDuration.Observe(time.Since(sent).Seconds())
 	}
 	snmp.OnRetry = func(x *gosnmp.GoSNMP) {
+		level.Debug(logger).Log("msg", "sending retry")
 		snmpRetries.Inc()
 		results.retries++
 	}
@@ -177,10 +207,18 @@ func ScrapeTarget(ctx context.Context, target string, config *config.Module, log
 		getStart := time.Now()
 		packet, err := snmp.Get(getOids[:oids])
 		if err != nil {
+			snmpErrors.Inc()
+			msg := "error walking target"
 			if err == context.Canceled {
-				return results, fmt.Errorf("scrape canceled (possible timeout) getting target %s", snmp.Target)
+				msg = "scrape canceled (possible timeout)"
 			}
-			return results, fmt.Errorf("error getting target %s: %s", snmp.Target, err)
+
+			if !*stopOnError {
+				level.Error(logger).Log("msg", msg, "error", err)
+				continue
+			}
+
+			return results, fmt.Errorf("%s, error: %s", msg, err)
 		}
 		level.Debug(logger).Log("msg", "Get of OIDs completed", "oids", oids, "duration_seconds", time.Since(getStart))
 		// SNMPv1 will return packet error for unsupported OIDs.
@@ -214,11 +252,20 @@ func ScrapeTarget(ctx context.Context, target string, config *config.Module, log
 			pdus, err = snmp.BulkWalkAll(subtree)
 		}
 		if err != nil {
+			snmpErrors.Inc()
+			msg := "error walking target"
 			if err == context.Canceled {
-				return results, fmt.Errorf("scrape canceled (possible timeout) walking target %s", snmp.Target)
+				msg = "scrape canceled (possible timeout)"
 			}
-			return results, fmt.Errorf("error walking target %s: %s", snmp.Target, err)
+
+			if !*stopOnError {
+				level.Error(logger).Log("msg", msg, "error", err)
+				continue
+			}
+
+			return results, fmt.Errorf("%s, error: %s", msg, err)
 		}
+
 		level.Debug(logger).Log("msg", "Walk of subtree completed", "oid", subtree, "duration_seconds", time.Since(walkStart))
 
 		results.pdus = append(results.pdus, pdus...)
