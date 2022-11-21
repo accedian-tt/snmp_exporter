@@ -22,12 +22,13 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/alecthomas/kingpin.v2"
+
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/snmp_exporter/gosnmp"
-	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/prometheus/snmp_exporter/config"
 )
@@ -788,9 +789,30 @@ func indexesToLabels(indexOids []int, metric *config.Metric, oidToPdu map[string
 			labels[lookup.Labelname] = pduValueAsString(&pdu, lookup.Type)
 			labelOids[lookup.Labelname] = []int{int(gosnmp.ToBigInt(pdu.Value).Int64())}
 		} else {
-			labels[lookup.Labelname] = ""
+			labels[lookup.Labelname] = treeAsString(oidToPdu, oid, *lookup)
 		}
 	}
 
 	return labels
+}
+
+func treeAsString(oidToPdu map[string]gosnmp.SnmpPDU, treeOid string, lookup config.Lookup) string {
+	allValues := map[string]bool{}
+
+	for oid, pdu := range oidToPdu {
+		if strings.HasPrefix(oid, treeOid) {
+			allValues[pduValueAsString(&pdu, lookup.Type)] = true
+		}
+	}
+
+	ret := ""
+
+	for k := range allValues {
+		if ret != "" {
+			ret += ","
+		}
+		ret += k
+	}
+
+	return ret
 }
