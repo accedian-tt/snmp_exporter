@@ -19,8 +19,9 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/prometheus/snmp_exporter/gosnmp"
 	"gopkg.in/yaml.v2"
+
+	"github.com/prometheus/snmp_exporter/gosnmp"
 )
 
 func LoadFile(filename string) (*Config, error) {
@@ -71,10 +72,11 @@ type WalkParams struct {
 
 type Module struct {
 	// A list of OIDs.
-	Walk       []string   `yaml:"walk,omitempty"`
-	Get        []string   `yaml:"get,omitempty"`
-	Metrics    []*Metric  `yaml:"metrics"`
-	WalkParams WalkParams `yaml:",inline"`
+	Walk       []string        `yaml:"walk,omitempty"`
+	Get        []string        `yaml:"get,omitempty"`
+	Metrics    []*Metric       `yaml:"metrics"`
+	WalkParams WalkParams      `yaml:",inline"`
+	Transform  []TransformRule `yaml:"transform"`
 }
 
 func (c *Module) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -244,6 +246,11 @@ type Auth struct {
 type RegexpExtract struct {
 	Value string `yaml:"value"`
 	Regex Regexp `yaml:"regex"`
+}
+
+type TransformRule struct {
+	Name       string `yaml:"name"`
+	Expression string `yaml:"expression"`
 }
 
 func (c *RegexpExtract) UnmarshalYAML(unmarshal func(interface{}) error) error {

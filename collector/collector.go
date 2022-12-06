@@ -28,9 +28,8 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/snmp_exporter/gosnmp"
-
 	"github.com/prometheus/snmp_exporter/config"
+	"github.com/prometheus/snmp_exporter/gosnmp"
 )
 
 const (
@@ -225,6 +224,7 @@ func ScrapeTarget(ctx context.Context, target string, config *config.Module, log
 
 		results.pdus = append(results.pdus, pdus...)
 	}
+
 	return results, nil
 }
 

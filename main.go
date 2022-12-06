@@ -23,6 +23,9 @@ import (
 	"syscall"
 	"time"
 
+	"gopkg.in/alecthomas/kingpin.v2"
+	yaml "gopkg.in/yaml.v2"
+
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
@@ -33,18 +36,15 @@ import (
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/exporter-toolkit/web"
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
-	"gopkg.in/alecthomas/kingpin.v2"
-	yaml "gopkg.in/yaml.v2"
-
 	"github.com/prometheus/snmp_exporter/collector"
 	"github.com/prometheus/snmp_exporter/config"
+	"github.com/prometheus/snmp_exporter/transformer"
 )
 
 var (
-	configFile    = kingpin.Flag("config.file", "Path to configuration file.").Default("snmp.yml").String()
-	webConfig     = webflag.AddFlags(kingpin.CommandLine)
-	listenAddress = kingpin.Flag("web.listen-address", "Address to listen on for web interface and telemetry.").Default(":9116").String()
-	dryRun        = kingpin.Flag("dry-run", "Only verify configuration is valid and exit.").Default("false").Bool()
+	configFile = kingpin.Flag("config.file", "Path to configuration file.").Default("snmp.yml").String()
+	webConfig  = webflag.AddFlags(kingpin.CommandLine, ":9116")
+	dryRun     = kingpin.Flag("dry-run", "Only verify configuration is valid and exit.").Default("false").Bool()
 
 	// Metrics about the SNMP exporter itself.
 	snmpDuration = promauto.NewSummaryVec(
@@ -101,6 +101,16 @@ func handler(w http.ResponseWriter, r *http.Request, logger log.Logger) {
 	registry := prometheus.NewRegistry()
 	c := collector.New(r.Context(), target, module, logger)
 	registry.MustRegister(c)
+
+	t, err := transformer.New(r.Context(), module, registry)
+	if err != nil {
+		level.Error(logger).Log("msg", "failed to run transformations", "err", err)
+		http.Error(w, "Failed to run transformations.", 500)
+		snmpRequestErrors.Inc()
+		return
+	}
+	registry.MustRegister(t)
+
 	// Delegate http serving to Prometheus client library, which will call collector.Collect.
 	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 	h.ServeHTTP(w, r)
@@ -241,9 +251,10 @@ func main() {
 		w.Write(c)
 	})
 
-	level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
-	srv := &http.Server{Addr: *listenAddress}
-	if err := web.ListenAndServe(srv, *webConfig, logger); err != nil {
+	level.Info(logger).Log("msg", "Listening on address", "address", webConfig.WebListenAddresses)
+	addresses := *webConfig.WebListenAddresses
+	srv := &http.Server{Addr: addresses[0]}
+	if err := web.ListenAndServe(srv, webConfig, logger); err != nil {
 		level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
 		os.Exit(1)
 	}
