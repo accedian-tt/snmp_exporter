@@ -2,6 +2,7 @@ package collector
 
 import (
 	"fmt"
+
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 )
@@ -15,5 +16,5 @@ func (l *gosnmpLogger) Print(v ...interface{}) {
 }
 
 func (l *gosnmpLogger) Printf(format string, v ...interface{}) {
-	level.Debug(l).Log("module", "gosnmp", "msg", fmt.Sprintf(format, v))
+	level.Debug(l).Log("module", "gosnmp", "msg", fmt.Sprintf(format, v...))
 }
