@@ -2,6 +2,7 @@ package transformer
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -25,7 +26,7 @@ func New(ctx context.Context, module *config.Module, gatherer prometheus.Gathere
 	})
 	source, err := queryable.FromGatherer(gatherer)
 	if err != nil {
-		return Transformer{}, nil
+		return Transformer{}, fmt.Errorf("failed to create source from gatherer: %w", err)
 	}
 	return Transformer{
 		ctx:    ctx,
