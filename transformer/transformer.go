@@ -38,7 +38,7 @@ func New(ctx context.Context, module *config.Module, gatherer prometheus.Gathere
 
 // Describe implements Prometheus.Collector.
 func (t Transformer) Describe(ch chan<- *prometheus.Desc) {
-	ch <- prometheus.NewDesc("dummy", "dummy", nil, nil)
+	ch <- prometheus.NewDesc("transformer", "transformer", nil, nil)
 }
 
 // Collect implements Prometheus.Collector.

@@ -102,14 +102,16 @@ func handler(w http.ResponseWriter, r *http.Request, logger log.Logger) {
 	c := collector.New(r.Context(), target, module, logger)
 	registry.MustRegister(c)
 
-	t, err := transformer.New(r.Context(), module, registry)
-	if err != nil {
-		level.Error(logger).Log("msg", "failed to run transformations", "err", err)
-		http.Error(w, "Failed to run transformations.", 500)
-		snmpRequestErrors.Inc()
-		return
+	if len(module.Transform) > 0 {
+		t, err := transformer.New(r.Context(), module, registry)
+		if err != nil {
+			level.Error(logger).Log("msg", "failed to run transformations", "err", err)
+			http.Error(w, "Failed to run transformations.", 500)
+			snmpRequestErrors.Inc()
+			return
+		}
+		registry.MustRegister(t)
 	}
-	registry.MustRegister(t)
 
 	// Delegate http serving to Prometheus client library, which will call collector.Collect.
 	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
