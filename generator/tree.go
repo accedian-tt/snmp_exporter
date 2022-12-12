@@ -272,6 +272,14 @@ func generateConfigModule(cfg *ModuleConfig, node *Node, nameToNode map[string]*
 		n.Type = params.Type
 	}
 
+	// Apply transform rules for the current module.
+	for name, params := range cfg.Overrides {
+		if params.Transform == "" {
+			continue
+		}
+		out.Transform = append(out.Transform, config.TransformRule{Name: name, Expression: params.Transform})
+	}
+
 	// Remove redundant OIDs to be walked.
 	toWalk := []string{}
 	for _, oid := range cfg.Walk {

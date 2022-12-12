@@ -18,9 +18,10 @@ import (
 	"regexp"
 	"testing"
 
+	yaml "gopkg.in/yaml.v2"
+
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/snmp_exporter/config"
-	yaml "gopkg.in/yaml.v2"
 )
 
 func TestTreePrepare(t *testing.T) {
@@ -1924,6 +1925,34 @@ func TestGenerateConfigModule(t *testing.T) {
 							},
 						},
 					},
+				},
+			},
+		},
+
+		// Simple metric with transform override.
+		{
+			node: &Node{Oid: "1", Type: "OTHER", Label: "root",
+				Children: []*Node{
+					{Oid: "1.1", Access: "ACCESS_READONLY", Type: "INTEGER", Label: "node1"},
+				}},
+			cfg: &ModuleConfig{
+				Walk: []string{"root"},
+				Overrides: map[string]MetricOverrides{
+					"node2": {Transform: "1"},
+				},
+			},
+			out: &config.Module{
+				Walk: []string{"1"},
+				Metrics: []*config.Metric{
+					{
+						Name: "node1",
+						Oid:  "1.1",
+						Type: "gauge",
+						Help: " - 1.1",
+					},
+				},
+				Transform: []config.TransformRule{
+					{Name: "node2", Expression: "1"},
 				},
 			},
 		},

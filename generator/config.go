@@ -28,6 +28,7 @@ type MetricOverrides struct {
 	Ignore         bool                              `yaml:"ignore,omitempty"`
 	RegexpExtracts map[string][]config.RegexpExtract `yaml:"regex_extracts,omitempty"`
 	Type           string                            `yaml:"type,omitempty"`
+	Transform      string                            `yaml:"transform"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -50,6 +51,7 @@ type ModuleConfig struct {
 	Lookups    []*Lookup                  `yaml:"lookups"`
 	WalkParams config.WalkParams          `yaml:",inline"`
 	Overrides  map[string]MetricOverrides `yaml:"overrides"`
+	Transform  []config.TransformRule     `yaml:"transform"`
 }
 
 type Lookup struct {
