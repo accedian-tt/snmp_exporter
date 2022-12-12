@@ -57,3 +57,10 @@ accpush:
 	docker build . -t gcr.io/npav-172917/snmp-exporter:$(DATE_TAG)
 	docker push gcr.io/npav-172917/snmp-exporter:$(DATE_TAG)
 	docker save gcr.io/npav-172917/snmp-exporter:$(DATE_TAG) --output  snmp-exporter:$(DATE_TAG).tar
+
+accgenpush:
+	docker build . -f Dockerfile_generator -t gcr.io/npav-172917/snmp-generator:$(DATE_TAG)
+	docker push gcr.io/npav-172917/snmp-generator:$(DATE_TAG)
+	docker save gcr.io/npav-172917/snmp-generator:$(DATE_TAG) --output  snmp-generator:$(DATE_TAG).tar
+
+accpushall: accpush accgenpush

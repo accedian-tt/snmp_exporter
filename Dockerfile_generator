@@ -1,4 +1,4 @@
-FROM golang as builder
+FROM golang:1.19 as builder
 
 RUN apt-get update && \
     apt-get install -y libsnmp-dev p7zip-full unzip
@@ -9,7 +9,7 @@ COPY . .
 WORKDIR /snmp_exporter/generator
 RUN go build -v
 
-FROM golang
+FROM golang:1.19
 
 RUN apt-get update && \
     apt-get install -y libsnmp-dev p7zip-full unzip

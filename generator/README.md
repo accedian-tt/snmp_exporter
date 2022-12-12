@@ -128,6 +128,8 @@ modules:
                              #   EnumAsInfo: An enum for which a single timeseries is created. Good for constant values.
                              #   EnumAsStateSet: An enum with a time series per state. Good for variable low-cardinality enums.
                              #   Bits: An RFC 2578 BITS construct, which produces a StateSet with a time series per bit.
+         transform: otherMetric1 * otherMetric2 # Use PromQL expression to transform metrics into new metric
+                                                #   
 ```
 
 ### EnumAsInfo and EnumAsStateSet
