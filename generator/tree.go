@@ -286,7 +286,7 @@ func generateConfigModule(cfg *ModuleConfig, node *Node, nameToNode map[string]*
 
 		query, err := engine.NewInstantQuery(nil, &promql.QueryOpts{}, params.Transform, time.Now())
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("broken PromQL query %s.[%s]: %w", name, params.Transform, err)
 		}
 		query.Close()
 		out.Transform = append(out.Transform, config.TransformRule{Name: name, Expression: params.Transform})
