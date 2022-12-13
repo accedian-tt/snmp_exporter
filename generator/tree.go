@@ -19,9 +19,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/prometheus/prometheus/promql"
 
 	"github.com/prometheus/snmp_exporter/config"
 )
@@ -272,11 +274,21 @@ func generateConfigModule(cfg *ModuleConfig, node *Node, nameToNode map[string]*
 		n.Type = params.Type
 	}
 
+	engine := promql.NewEngine(promql.EngineOpts{
+		Timeout:    1 * time.Second,
+		MaxSamples: 10000,
+	})
 	// Apply transform rules for the current module.
 	for name, params := range cfg.Overrides {
 		if params.Transform == "" {
 			continue
 		}
+
+		query, err := engine.NewInstantQuery(nil, &promql.QueryOpts{}, params.Transform, time.Now())
+		if err != nil {
+			return nil, err
+		}
+		query.Close()
 		out.Transform = append(out.Transform, config.TransformRule{Name: name, Expression: params.Transform})
 	}
 
