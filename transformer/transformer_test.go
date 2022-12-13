@@ -177,6 +177,38 @@ func TestTransformations(t *testing.T) {
 		hasValue(t, 42)
 }
 
+func TestCienaCes(t *testing.T) {
+	ctx := context.Background()
+	registry := cienaCesCfmSyntheticLossSessionAvgFrameLoss()
+	m := config.Module{Transform: []config.TransformRule{
+		{
+			Name:       "cienaCesCfmSyntheticLossSessionAvgFrameLossMax",
+			Expression: "cienaCesCfmSyntheticLossSessionAvgFrameLossFar > cienaCesCfmSyntheticLossSessionAvgFrameLossNear or cienaCesCfmSyntheticLossSessionAvgFrameLossNear",
+		},
+		{
+			Name:       "cienaCesCfmSyntheticLossSessionAvgFrameLossMax2",
+			Expression: `max({__name__=~"cienaCesCfmSyntheticLossSessionAvgFrameLossFar|cienaCesCfmSyntheticLossSessionAvgFrameLossNear"})`,
+		},
+	}}
+	transformer, err := New(ctx, &m, registry)
+	require.NoError(t, err)
+
+	registry.MustRegister(transformer)
+
+	metricFamilies, err := registry.Gather()
+	require.NoError(t, err)
+
+	inResult(metricFamilies).
+		assertTheFamily(t, "cienaCesCfmSyntheticLossSessionAvgFrameLossMax").
+		withSingleMetric(t).
+		hasValue(t, 8)
+
+	inResult(metricFamilies).
+		assertTheFamily(t, "cienaCesCfmSyntheticLossSessionAvgFrameLossMax2").
+		withSingleMetric(t).
+		hasValue(t, 8)
+}
+
 func newTestingRegistry() *prometheus.Registry {
 	registry := prometheus.NewRegistry()
 
@@ -204,6 +236,54 @@ func newTestingRegistry() *prometheus.Registry {
 	testMetric2.With(prometheus.Labels{"ifIndex": "4"}).Set(1)
 
 	registry.MustRegister(testMetric2)
+
+	return registry
+}
+
+func cienaCesCfmSyntheticLossSessionAvgFrameLoss() *prometheus.Registry {
+	registry := prometheus.NewRegistry()
+
+	far := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "cienaCesCfmSyntheticLossSessionAvgFrameLossFar",
+		Help: "far",
+	}, []string{
+		"cienaCesCfmSyntheticLossSessionLocalMEPId",
+		"cienaCesCfmSyntheticLossSessionServiceIndex",
+		"cienaCesCfmSyntheticLossSessionTargetMEPId",
+		"cienaCesCfmSyntheticLossSessionTestId",
+		"cienaCesPmInstanceName",
+	})
+
+	far.With(prometheus.Labels{
+		"cienaCesCfmSyntheticLossSessionLocalMEPId":   "1",
+		"cienaCesCfmSyntheticLossSessionServiceIndex": "13",
+		"cienaCesCfmSyntheticLossSessionTargetMEPId":  "2",
+		"cienaCesCfmSyntheticLossSessionTestId":       "1",
+		"cienaCesPmInstanceName":                      "25_CEL21-0001631_1",
+	}).Set(1)
+
+	registry.MustRegister(far)
+
+	Near := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "cienaCesCfmSyntheticLossSessionAvgFrameLossNear",
+		Help: "near",
+	}, []string{
+		"cienaCesCfmSyntheticLossSessionLocalMEPId",
+		"cienaCesCfmSyntheticLossSessionServiceIndex",
+		"cienaCesCfmSyntheticLossSessionTargetMEPId",
+		"cienaCesCfmSyntheticLossSessionTestId",
+		"cienaCesPmInstanceName",
+	})
+
+	Near.With(prometheus.Labels{
+		"cienaCesCfmSyntheticLossSessionLocalMEPId":   "1",
+		"cienaCesCfmSyntheticLossSessionServiceIndex": "13",
+		"cienaCesCfmSyntheticLossSessionTargetMEPId":  "2",
+		"cienaCesCfmSyntheticLossSessionTestId":       "1",
+		"cienaCesPmInstanceName":                      "25_CEL21-0001631_1",
+	}).Set(8)
+
+	registry.MustRegister(Near)
 
 	return registry
 }

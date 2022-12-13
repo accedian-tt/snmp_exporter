@@ -48,7 +48,11 @@ func (t Transformer) Collect(ch chan<- prometheus.Metric) {
 		expression := rule.Expression
 
 		println(metricName, expression)
-		query, _ := t.engine.NewInstantQuery(t.source, nil, expression, time.Now())
+		query, err := t.engine.NewInstantQuery(t.source, nil, expression, time.Now())
+		if err != nil {
+			ch <- prometheus.NewInvalidMetric(prometheus.NewDesc(rule.Name, "-", []string{}, prometheus.Labels{}), err)
+			continue
+		}
 		result := query.Exec(t.ctx)
 		query.Close()
 		toGauge(rule.Name, result).Collect(ch)
