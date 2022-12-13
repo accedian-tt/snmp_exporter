@@ -187,7 +187,7 @@ func TestCienaCes(t *testing.T) {
 		},
 		{
 			Name:       "cienaCesCfmSyntheticLossSessionAvgFrameLossMax2",
-			Expression: `max({__name__=~"cienaCesCfmSyntheticLossSessionAvgFrameLossFar|cienaCesCfmSyntheticLossSessionAvgFrameLossNear"})`,
+			Expression: `max({__name__=~"cienaCesCfmSyntheticLossSessionAvgFrameLossFar|cienaCesCfmSyntheticLossSessionAvgFrameLossNear"}) without (__name__)`,
 		},
 	}}
 	transformer, err := New(ctx, &m, registry)
@@ -205,7 +205,12 @@ func TestCienaCes(t *testing.T) {
 
 	inResult(metricFamilies).
 		assertTheFamily(t, "cienaCesCfmSyntheticLossSessionAvgFrameLossMax2").
-		withSingleMetric(t).
+		withMetricThatMatches(t,
+			eq("cienaCesCfmSyntheticLossSessionLocalMEPId", "1"),
+			eq("cienaCesCfmSyntheticLossSessionServiceIndex", "13"),
+			eq("cienaCesCfmSyntheticLossSessionTargetMEPId", "2"),
+			eq("cienaCesCfmSyntheticLossSessionTestId", "1"),
+		).
 		hasValue(t, 8)
 }
 

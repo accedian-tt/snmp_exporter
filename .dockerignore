@@ -94,3 +94,4 @@ fabric.properties
 
 generator/mibs
 .build
+snmp-*.tar
