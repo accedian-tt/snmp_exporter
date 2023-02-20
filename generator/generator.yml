@@ -21,7 +21,7 @@ modules:
       ifType:
         type: EnumAsInfo
 
-  nec:
+  custom:
     max_repetitions: 50
     timeout: 5m
     walk:
@@ -150,6 +150,12 @@ modules:
         ignore: true # Lookup metric
       ifType:
         type: EnumAsInfo
+      customMetric1:
+        transform: 1
+      customMetric2:
+        transform: sum(esModemModulation)*sum(rmon1dayClassCounterRxClass0Pkts)
+      customMetric3:
+        transform: sum(rmon1dayClassCounterRxClass0Pkts) by (rmon1dayClassCounterIfIndex) + sum(rmon1dayClassCounterRxClass0Octets) by (rmon1dayClassCounterIfIndex)
 
 # Cisco Wireless LAN Controller
   cisco_wlc:

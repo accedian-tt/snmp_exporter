@@ -99,8 +99,14 @@ func handler(w http.ResponseWriter, r *http.Request, logger log.Logger) {
 
 	start := time.Now()
 	registry := prometheus.NewRegistry()
-	c := collector.New(r.Context(), target, module, logger)
-	registry.MustRegister(c)
+	cachedC, err := transformer.NewCachedResult(r.Context(), collector.New(r.Context(), target, module, logger))
+	if err != nil {
+		level.Error(logger).Log("msg", "failed to scrape snmp metrics", "err", err)
+		http.Error(w, fmt.Sprintf("Unexpected result"), 500)
+		snmpRequestErrors.Inc()
+		return
+	}
+	registry.MustRegister(cachedC)
 
 	if len(module.Transform) > 0 {
 		t, err := transformer.New(r.Context(), module, registry)
