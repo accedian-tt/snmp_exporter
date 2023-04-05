@@ -42,9 +42,10 @@ import (
 )
 
 var (
-	configFile = kingpin.Flag("config.file", "Path to configuration file.").Default("snmp.yml").String()
-	webConfig  = webflag.AddFlags(kingpin.CommandLine, ":9116")
-	dryRun     = kingpin.Flag("dry-run", "Only verify configuration is valid and exit.").Default("false").Bool()
+	configFile      = kingpin.Flag("config.file", "Path to configuration file.").Default("snmp.yml").String()
+	webConfig       = webflag.AddFlags(kingpin.CommandLine, ":9116")
+	dryRun          = kingpin.Flag("dry-run", "Only verify configuration is valid and exit.").Default("false").Bool()
+	disableBalkWalk = kingpin.Flag("disable-balk-walk", "Disables balkwalks.").Default("false").Bool()
 
 	// Metrics about the SNMP exporter itself.
 	snmpDuration = promauto.NewSummaryVec(
@@ -99,7 +100,7 @@ func handler(w http.ResponseWriter, r *http.Request, logger log.Logger) {
 
 	start := time.Now()
 	registry := prometheus.NewRegistry()
-	cachedC, err := transformer.NewCachedResult(r.Context(), collector.New(r.Context(), target, module, logger))
+	cachedC, err := transformer.NewCachedResult(r.Context(), collector.New(r.Context(), target, *disableBalkWalk, module, logger))
 	if err != nil {
 		level.Error(logger).Log("msg", "failed to scrape snmp metrics", "err", err)
 		http.Error(w, fmt.Sprintf("Unexpected result"), 500)

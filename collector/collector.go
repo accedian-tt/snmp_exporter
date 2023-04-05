@@ -114,12 +114,12 @@ type ScrapeResults struct {
 	retries uint64
 }
 
-func ScrapeTarget(ctx context.Context, target string, config *config.Module, logger log.Logger) (ScrapeResults, error) {
+func ScrapeTarget(ctx context.Context, target string, disableBalkWalks bool, config *config.Module, logger log.Logger) (ScrapeResults, error) {
 	results := ScrapeResults{}
 	// Set the options.
 	snmp := gosnmp.GoSNMP{}
 	snmp.Context = ctx
-	snmp.MaxRepetitions = config.WalkParams.MaxRepetitions
+	snmp.MaxRepetitions = 1
 	snmp.Retries = config.WalkParams.Retries
 	snmp.Timeout = config.WalkParams.Timeout
 	snmp.Logger = gosnmp.NewLogger(&gosnmpLogger{logger})
@@ -164,6 +164,11 @@ func ScrapeTarget(ctx context.Context, target string, config *config.Module, log
 
 	getOids := config.Get
 	maxOids := int(config.WalkParams.MaxRepetitions)
+
+	if disableBalkWalks {
+		maxOids = 1
+	}
+
 	// Max Repetition can be 0, maxOids cannot. SNMPv1 can only report one OID error per call.
 	if maxOids == 0 || snmp.Version == gosnmp.Version1 {
 		maxOids = 1
@@ -209,7 +214,7 @@ func ScrapeTarget(ctx context.Context, target string, config *config.Module, log
 		var pdus []gosnmp.SnmpPDU
 		level.Debug(logger).Log("msg", "Walking subtree", "oid", subtree)
 		walkStart := time.Now()
-		if snmp.Version == gosnmp.Version1 {
+		if snmp.Version == gosnmp.Version1 || disableBalkWalks {
 			pdus, err = snmp.WalkAll(subtree)
 		} else {
 			pdus, err = snmp.BulkWalkAll(subtree)
@@ -252,14 +257,15 @@ func buildMetricTree(metrics []*config.Metric) *MetricNode {
 }
 
 type collector struct {
-	ctx    context.Context
-	target string
-	module *config.Module
-	logger log.Logger
+	ctx              context.Context
+	target           string
+	module           *config.Module
+	logger           log.Logger
+	disableBalkWalks bool
 }
 
-func New(ctx context.Context, target string, module *config.Module, logger log.Logger) *collector {
-	return &collector{ctx: ctx, target: target, module: module, logger: logger}
+func New(ctx context.Context, target string, disableBalkWalks bool, module *config.Module, logger log.Logger) *collector {
+	return &collector{ctx: ctx, target: target, disableBalkWalks: disableBalkWalks, module: module, logger: logger}
 }
 
 // Describe implements Prometheus.Collector.
@@ -270,7 +276,7 @@ func (c collector) Describe(ch chan<- *prometheus.Desc) {
 // Collect implements Prometheus.Collector.
 func (c collector) Collect(ch chan<- prometheus.Metric) {
 	start := time.Now()
-	results, err := ScrapeTarget(c.ctx, c.target, c.module, c.logger)
+	results, err := ScrapeTarget(c.ctx, c.target, c.disableBalkWalks, c.module, c.logger)
 	if err != nil {
 		level.Info(c.logger).Log("msg", "Error scraping target", "err", err)
 		ch <- prometheus.NewInvalidMetric(prometheus.NewDesc("snmp_error", "Error scraping target", nil, nil), err)
